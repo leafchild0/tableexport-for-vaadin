@@ -100,7 +100,7 @@ public class ExcelExport extends TableExport {
      * default style is not desired to be used.
      */
     protected CellStyle dateCellStyle, doubleCellStyle, integerCellStyle, totalsDoubleCellStyle,
-            totalsIntegerCellStyle, columnHeaderCellStyle, titleCellStyle;
+        totalsIntegerCellStyle, columnHeaderCellStyle, titleCellStyle;
     protected Short dateDataFormat, doubleDataFormat, integerDataFormat;
     protected Map<Short, CellStyle> dataFormatCellStylesMap = new HashMap<Short, CellStyle>();
 
@@ -160,7 +160,7 @@ public class ExcelExport extends TableExport {
      * @param exportFileName the export file name
      */
     public ExcelExport(final Table table, final String sheetName, final String reportTitle,
-                       final String exportFileName) {
+        final String exportFileName) {
         this(table, sheetName, reportTitle, exportFileName, true);
     }
 
@@ -176,12 +176,12 @@ public class ExcelExport extends TableExport {
      * @param hasTotalsRow   flag indicating whether we should create a totals row
      */
     public ExcelExport(final Table table, final String sheetName, final String reportTitle,
-                       final String exportFileName, final boolean hasTotalsRow) {
+        final String exportFileName, final boolean hasTotalsRow) {
         this(table, new HSSFWorkbook(), sheetName, reportTitle, exportFileName, hasTotalsRow);
     }
 
     public ExcelExport(final Table table, final Workbook wkbk, final String shtName, final String rptTitle,
-                       final String xptFileName, final boolean hasTotalsRow) {
+        final String xptFileName, final boolean hasTotalsRow) {
         super(table);
         this.workbook = wkbk;
         init(shtName, rptTitle, xptFileName, hasTotalsRow);
@@ -226,7 +226,7 @@ public class ExcelExport extends TableExport {
      * @param exportFileName the export file name
      */
     public ExcelExport(final TableHolder tableHolder, final String sheetName, final String reportTitle,
-                       final String exportFileName) {
+        final String exportFileName) {
         this(tableHolder, sheetName, reportTitle, exportFileName, true);
     }
 
@@ -242,19 +242,19 @@ public class ExcelExport extends TableExport {
      * @param hasTotalsRow   flag indicating whether we should create a totals row
      */
     public ExcelExport(final TableHolder tableHolder, final String sheetName, final String reportTitle,
-                       final String exportFileName, final boolean hasTotalsRow) {
+        final String exportFileName, final boolean hasTotalsRow) {
         this(tableHolder, new HSSFWorkbook(), sheetName, reportTitle, exportFileName, hasTotalsRow);
     }
 
     public ExcelExport(final TableHolder tableHolder, final Workbook wkbk, final String shtName,
-                       final String rptTitle, final String xptFileName, final boolean hasTotalsRow) {
+        final String rptTitle, final String xptFileName, final boolean hasTotalsRow) {
         super(tableHolder);
         this.workbook = wkbk;
         init(shtName, rptTitle, xptFileName, hasTotalsRow);
     }
 
     private void init(final String shtName, final String rptTitle, final String xptFileName,
-                      final boolean hasTotalsRow) {
+        final boolean hasTotalsRow) {
         if ((null == shtName) || ("".equals(shtName))) {
             this.sheetName = "Table Export";
         } else {
@@ -462,7 +462,7 @@ public class ExcelExport extends TableExport {
             propId = getPropIds().get(col);
             headerCell = headerRow.createCell(col);
             headerCell.setCellValue(createHelper.createRichTextString(getTableHolder().getColumnHeader(propId)
-                    .toString()));
+                .toString()));
             headerCell.setCellStyle(getColumnHeaderStyle(row, col));
 
             final Short poiAlignment = getTableHolder().getCellAlignment(propId);
@@ -496,33 +496,26 @@ public class ExcelExport extends TableExport {
      * setDataStyle(). For different data cells to have different CellStyles, override
      * getDataStyle().
      *
-     * @param row the row
-     * @return the int
+     * @param row row number to start from
+     * @return last added row number
      */
     protected int addHierarchicalDataRows(final Sheet sheetToAddTo, final int row) {
-        final Collection<?> roots;
-        int localRow = row;
-        roots = ((Container.Hierarchical) getTableHolder().getContainerDataSource()).rootItemIds();
+        int startRow = row;
+        final Collection<?> roots = ((Container.Hierarchical) getTableHolder().getContainerDataSource()).rootItemIds();
         /*
          * For Hierarchical Containers, the outlining/grouping in the sheet is with the summary row
          * at the top and the grouped/outlined subcategories below.
          */
         sheet.setRowSumsBelow(false);
-        int count = 0;
         for (final Object rootId : roots) {
-            count = addDataRowRecursively(sheetToAddTo, rootId, localRow);
+            startRow += addDataRowRecursively(sheetToAddTo, rootId, startRow);
             // for totals purposes, we just want to add rootIds which contain totals
             // so we store just the totals in a separate sheet.
             if (displayTotals) {
-                addDataRow(hierarchicalTotalsSheet, rootId, localRow);
+                addDataRow(hierarchicalTotalsSheet, rootId, startRow);
             }
-            if (count > 1) {
-                sheet.groupRow(localRow + 1, (localRow + count) - 1);
-                sheet.setRowGroupCollapsed(localRow + 1, true);
-            }
-            localRow = localRow + count;
         }
-        return localRow;
+        return startRow;
     }
 
     /**
@@ -553,23 +546,26 @@ public class ExcelExport extends TableExport {
      * Used by addHierarchicalDataRows() to implement the recursive calls.
      *
      * @param rootItemId the root item id
-     * @param row        the row
-     * @return the int
+     * @param startRow   row number to start from
+     * @return last added row number
      */
-    private int addDataRowRecursively(final Sheet sheetToAddTo, final Object rootItemId, final int row) {
-        int numberAdded = 0;
-        int localRow = row;
-        addDataRow(sheetToAddTo, rootItemId, row);
-        numberAdded++;
-        if (((Container.Hierarchical) getTableHolder().getContainerDataSource()).hasChildren(rootItemId)) {
-            final Collection<?> children = ((Container.Hierarchical) getTableHolder().getContainerDataSource())
-                    .getChildren(rootItemId);
-            for (final Object child : children) {
-                localRow++;
-                numberAdded = numberAdded + addDataRowRecursively(sheetToAddTo, child, localRow);
+    private int addDataRowRecursively(final Sheet sheetToAddTo, final Object rootItemId, final int startRow) {
+        this.addDataRow(sheetToAddTo, rootItemId, startRow);
+        int addedRows = 1;
+        Container.Hierarchical data = (Container.Hierarchical) this.getTableHolder().getContainerDataSource();
+
+        if (data.hasChildren(rootItemId)) {
+            Collection children = data.getChildren(rootItemId);
+
+            for (Object child : children) {
+                addedRows += this.addDataRowRecursively(sheetToAddTo, child, startRow + addedRows);
+            }
+            if(addedRows > 1) {
+                sheetToAddTo.groupRow(startRow + 1, startRow + addedRows - 1);
+                sheetToAddTo.setRowGroupCollapsed(startRow + 1, true);
             }
         }
-        return numberAdded;
+        return addedRows;
     }
 
     /**
